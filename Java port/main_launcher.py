@@ -11,6 +11,8 @@ import threading
 CLIENT_ID = "00000000402b5328"
 
 def get_base_directory():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
 class MainLauncher:
@@ -94,23 +96,28 @@ class MainLauncher:
 
             # 2. Download JRE if requested
             if self.jre_var.get():
-                self.root.after(0, lambda: self.progress_label.config(text="Downloading JRE..."))
-                # Get the required JRE version for this Minecraft version
-                # This is a bit simplified, usually it's "java-runtime-alpha", "java-runtime-beta" etc.
-                # For modern versions (1.17+), Java 17 is usually needed.
-                # minecraft-launcher-lib has install_jre but it's often easier to use the
-                # version specific one if we knew it.
-                # For simplicity, we'll try to let it auto-detect or just download the standard one.
-                # Here we use the version's manifest to find the correct JRE.
-                manifest = minecraft_launcher_lib.install.get_installed_versions(target_dir)
-                # This is more complex than it should be.
-                # Let's just use a common one if it's not specified.
-                minecraft_launcher_lib.runtime.install_jvm_runtime("java-runtime-gamma", target_dir, callback=callback)
+                self.root.after(0, lambda: self.progress_label.config(text="Checking required JRE..."))
 
-            # 3. Copy sub-launcher
-            sub_launcher_src = os.path.join(self.base_dir, "sub_launcher.py")
-            sub_launcher_dest = os.path.join(target_dir, "sub_launcher.py")
-            shutil.copy2(sub_launcher_src, sub_launcher_dest)
+                # Try to find the correct JRE version for this Minecraft version
+                try:
+                    version_data = minecraft_launcher_lib.install.get_version_data(version, target_dir)
+                    java_runtime_name = version_data.get("javaVersion", {}).get("component", "java-runtime-gamma")
+                except:
+                    java_runtime_name = "java-runtime-gamma"
+
+                self.root.after(0, lambda: self.progress_label.config(text=f"Downloading JRE ({java_runtime_name})..."))
+                minecraft_launcher_lib.runtime.install_jvm_runtime(java_runtime_name, target_dir, callback=callback)
+
+            # 3. Copy sub-launcher (try .exe first, then .py)
+            sub_launcher_src = os.path.join(self.base_dir, "sub_launcher.exe")
+            if os.path.exists(sub_launcher_src):
+                sub_launcher_dest = os.path.join(target_dir, "sub_launcher.exe")
+            else:
+                sub_launcher_src = os.path.join(self.base_dir, "sub_launcher.py")
+                sub_launcher_dest = os.path.join(target_dir, "sub_launcher.py")
+
+            if os.path.exists(sub_launcher_src):
+                shutil.copy2(sub_launcher_src, sub_launcher_dest)
 
             self.root.after(0, lambda: self.progress_label.config(text="Download Complete!"))
             self.root.after(0, lambda: self.download_btn.config(state="normal"))

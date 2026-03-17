@@ -11,6 +11,8 @@ import threading
 CLIENT_ID = "00000000402b5328"
 
 def get_minecraft_directory():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
 def get_version_id():
