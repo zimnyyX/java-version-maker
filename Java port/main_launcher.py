@@ -6,6 +6,7 @@ import sys
 import os
 import shutil
 import threading
+import ms_auth
 
 # Use a default Client ID
 CLIENT_ID = "00000000402b5328"
@@ -108,6 +109,11 @@ class MainLauncher:
                 self.root.after(0, lambda: self.progress_label.config(text=f"Downloading JRE ({java_runtime_name})..."))
                 minecraft_launcher_lib.runtime.install_jvm_runtime(java_runtime_name, target_dir, callback=callback)
 
+            # Copy ms_auth.py too
+            ms_auth_src = os.path.join(self.base_dir, "ms_auth.py")
+            if os.path.exists(ms_auth_src):
+                shutil.copy2(ms_auth_src, os.path.join(target_dir, "ms_auth.py"))
+
             # 3. Copy sub-launcher (try .exe first, then .py)
             sub_launcher_src = os.path.join(self.base_dir, "sub_launcher.exe")
             if os.path.exists(sub_launcher_src):
@@ -167,7 +173,7 @@ class MainLauncher:
     def login_online_and_launch(self, version, mc_dir):
         def do_login():
             try:
-                device_code_data = minecraft_launcher_lib.microsoft_account.get_device_code(CLIENT_ID)
+                device_code_data = ms_auth.get_device_code(CLIENT_ID)
 
                 def show_code():
                     self.root.clipboard_clear()
@@ -177,7 +183,7 @@ class MainLauncher:
 
                 self.root.after(0, show_code)
 
-                auth_data = minecraft_launcher_lib.microsoft_account.complete_device_code_login(CLIENT_ID, device_code_data)
+                auth_data = ms_auth.complete_device_code_login(CLIENT_ID, device_code_data)
                 self.launch_game(version, mc_dir, auth_data["name"], auth_data["id"], auth_data["access_token"])
             except Exception as e:
                 self.root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {str(e)}"))

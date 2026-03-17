@@ -5,6 +5,7 @@ import subprocess
 import sys
 import os
 import threading
+import ms_auth
 
 # Use a default Client ID
 CLIENT_ID = "00000000402b5328"
@@ -73,7 +74,7 @@ def login_offline():
 def login_online():
     def do_login():
         try:
-            device_code_data = minecraft_launcher_lib.microsoft_account.get_device_code(CLIENT_ID)
+            device_code_data = ms_auth.get_device_code(CLIENT_ID)
 
             # Use root.after for UI updates
             def show_code():
@@ -85,7 +86,7 @@ def login_online():
             root.after(0, show_code)
 
             try:
-                auth_data = minecraft_launcher_lib.microsoft_account.complete_device_code_login(CLIENT_ID, device_code_data)
+                auth_data = ms_auth.complete_device_code_login(CLIENT_ID, device_code_data)
                 root.after(0, lambda: launch_game(auth_data["name"], auth_data["id"], auth_data["access_token"]))
             except Exception as e:
                 root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {str(e)}"))

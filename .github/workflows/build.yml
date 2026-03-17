@@ -27,17 +27,18 @@ jobs:
 
     - name: Build Main Launcher
       run: |
-        pyinstaller --noconsole --onefile "Java port/main_launcher.py"
+        pyinstaller --noconsole --onefile --add-data "Java port/ms_auth.py;." "Java port/main_launcher.py"
 
     - name: Build Sub-Launcher
       run: |
-        pyinstaller --noconsole --onefile "Java port/sub_launcher.py"
+        pyinstaller --noconsole --onefile --add-data "Java port/ms_auth.py;." "Java port/sub_launcher.py"
 
     - name: Prepare distribution
       run: |
         mkdir dist_zip
         cp "dist/main_launcher.exe" "dist_zip/"
         cp "dist/sub_launcher.exe" "dist_zip/"
+        cp "Java port/ms_auth.py" "dist_zip/"
         cp "README.md" "dist_zip/"
         cp "requirements.txt" "dist_zip/"
 
