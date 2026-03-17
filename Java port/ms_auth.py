@@ -5,21 +5,22 @@ import json
 import os
 
 def get_device_code(client_id):
-    url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"
+    url = "https://login.microsoftonline.com/common/oauth2/v2.0/devicecode"
     data = {
         "client_id": client_id,
         "scope": "XboxLive.signin offline_access"
     }
     try:
         response = requests.post(url, data=data, timeout=30)
-        response.raise_for_status()
+        if response.status_code != 200:
+            raise Exception(f"Status {response.status_code}: {response.text}")
         return response.json()
     except Exception as e:
         msg = str(e) if str(e) else f"Unknown error ({type(e).__name__})"
         raise Exception(f"Failed to get device code: {msg}")
 
 def complete_device_code_login(client_id, device_code_data):
-    url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+    url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
     data = {
         "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
         "client_id": client_id,
