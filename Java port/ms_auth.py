@@ -1,7 +1,8 @@
 import requests
 import time
 import minecraft_launcher_lib
-from typing import cast
+import json
+import os
 
 def get_device_code(client_id):
     url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"
@@ -9,9 +10,12 @@ def get_device_code(client_id):
         "client_id": client_id,
         "scope": "XboxLive.signin offline_access"
     }
-    response = requests.post(url, data=data)
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = requests.post(url, data=data)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        raise Exception(f"Failed to get device code: {str(e)}")
 
 def complete_device_code_login(client_id, device_code_data):
     url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
@@ -26,43 +30,86 @@ def complete_device_code_login(client_id, device_code_data):
     start_time = time.time()
 
     while time.time() - start_time < expires_in:
-        response = requests.post(url, data=data)
-        res_data = response.json()
+        try:
+            response = requests.post(url, data=data)
+            res_data = response.json()
 
-        if "access_token" in res_data:
-            # Step 1: MS Access Token
-            ms_token = res_data["access_token"]
-            refresh_token = res_data.get("refresh_token")
+            if "access_token" in res_data:
+                return _authenticate_minecraft(client_id, res_data["access_token"], res_data.get("refresh_token"))
 
-            # Step 2: XBL
-            xbl_request = minecraft_launcher_lib.microsoft_account.authenticate_with_xbl(ms_token)
-            xbl_token = xbl_request["Token"]
-            userhash = xbl_request["DisplayClaims"]["xui"][0]["uhs"]
-
-            # Step 3: XSTS
-            xsts_request = minecraft_launcher_lib.microsoft_account.authenticate_with_xsts(xbl_token)
-            xsts_token = xsts_request["Token"]
-
-            # Step 4: Minecraft
-            account_request = minecraft_launcher_lib.microsoft_account.authenticate_with_minecraft(userhash, xsts_token)
-            if "access_token" not in account_request:
-                raise Exception("Minecraft authentication failed")
-
-            mc_access_token = account_request["access_token"]
-
-            # Step 5: Profile
-            profile = minecraft_launcher_lib.microsoft_account.get_profile(mc_access_token)
-            if "error" in profile and profile["error"] == "NOT_FOUND":
-                raise Exception("Account does not own Minecraft")
-
-            profile["access_token"] = mc_access_token
-            profile["refresh_token"] = refresh_token
-
-            return profile
-
-        if res_data.get("error") != "authorization_pending":
-            raise Exception(res_data.get("error_description", res_data.get("error")))
+            error = res_data.get("error")
+            if error == "authorization_pending":
+                time.sleep(interval)
+                continue
+            elif error:
+                raise Exception(res_data.get("error_description", error))
+        except Exception as e:
+            if "authorization_pending" not in str(e):
+                raise Exception(f"Login error: {str(e)}")
 
         time.sleep(interval)
 
-    raise Exception("Login timed out")
+    raise Exception("Login timed out. Please try again.")
+
+def _authenticate_minecraft(client_id, ms_token, refresh_token):
+    try:
+        # XBL
+        xbl_request = minecraft_launcher_lib.microsoft_account.authenticate_with_xbl(ms_token)
+        if "Token" not in xbl_request:
+            raise Exception("Xbox Live authentication failed.")
+
+        xbl_token = xbl_request["Token"]
+        userhash = xbl_request["DisplayClaims"]["xui"][0]["uhs"]
+
+        # XSTS
+        xsts_request = minecraft_launcher_lib.microsoft_account.authenticate_with_xsts(xbl_token)
+        if "Token" not in xsts_request:
+            raise Exception("XSTS authentication failed. Ensure you have an Xbox profile.")
+
+        xsts_token = xsts_request["Token"]
+
+        # Minecraft
+        account_request = minecraft_launcher_lib.microsoft_account.authenticate_with_minecraft(userhash, xsts_token)
+        if "access_token" not in account_request:
+            raise Exception("Minecraft authentication failed.")
+
+        mc_access_token = account_request["access_token"]
+
+        # Profile
+        profile = minecraft_launcher_lib.microsoft_account.get_profile(mc_access_token)
+        if "error" in profile:
+            if profile["error"] == "NOT_FOUND":
+                raise Exception("This Microsoft account does not own Minecraft.")
+            else:
+                raise Exception(f"Failed to get Minecraft profile: {profile.get('errorMessage', profile['error'])}")
+
+        profile["access_token"] = mc_access_token
+        profile["refresh_token"] = refresh_token
+
+        return profile
+    except Exception as e:
+        raise Exception(f"Minecraft Auth Error: {str(e)}")
+
+def save_session(mc_dir, auth_data):
+    session_path = os.path.join(mc_dir, "session.json")
+    with open(session_path, "w") as f:
+        json.dump(auth_data, f)
+
+def load_session(mc_dir):
+    session_path = os.path.join(mc_dir, "session.json")
+    if os.path.exists(session_path):
+        try:
+            with open(session_path, "r") as f:
+                return json.load(f)
+        except:
+            return None
+    return None
+
+def refresh_session(client_id, refresh_token):
+    try:
+        # minecraft-launcher-lib has complete_refresh but it might have similar issues
+        # or we might want to stay consistent with our manual flow if needed.
+        # Actually, let's try to use the library's one first.
+        return minecraft_launcher_lib.microsoft_account.complete_refresh(client_id, None, None, refresh_token)
+    except Exception as e:
+        raise Exception(f"Failed to refresh session: {str(e)}")

@@ -172,6 +172,18 @@ class MainLauncher:
 
     def login_online_and_launch(self, version, mc_dir):
         def do_login():
+            # Try to load existing session
+            session = ms_auth.load_session(mc_dir)
+            if session:
+                try:
+                    # Refresh session
+                    auth_data = ms_auth.refresh_session(CLIENT_ID, session["refresh_token"])
+                    ms_auth.save_session(mc_dir, auth_data)
+                    self.launch_game(version, mc_dir, auth_data["name"], auth_data["id"], auth_data["access_token"])
+                    return
+                except:
+                    pass # Fallback to new login
+
             try:
                 device_code_data = ms_auth.get_device_code(CLIENT_ID)
 
@@ -184,6 +196,7 @@ class MainLauncher:
                 self.root.after(0, show_code)
 
                 auth_data = ms_auth.complete_device_code_login(CLIENT_ID, device_code_data)
+                ms_auth.save_session(mc_dir, auth_data)
                 self.launch_game(version, mc_dir, auth_data["name"], auth_data["id"], auth_data["access_token"])
             except Exception as e:
                 self.root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {str(e)}"))

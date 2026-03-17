@@ -73,6 +73,19 @@ def login_offline():
 
 def login_online():
     def do_login():
+        mc_dir = get_minecraft_directory()
+        # Try to load existing session
+        session = ms_auth.load_session(mc_dir)
+        if session:
+            try:
+                # Refresh session
+                auth_data = ms_auth.refresh_session(CLIENT_ID, session["refresh_token"])
+                ms_auth.save_session(mc_dir, auth_data)
+                root.after(0, lambda: launch_game(auth_data["name"], auth_data["id"], auth_data["access_token"]))
+                return
+            except:
+                pass # Fallback to new login
+
         try:
             device_code_data = ms_auth.get_device_code(CLIENT_ID)
 
@@ -87,6 +100,7 @@ def login_online():
 
             try:
                 auth_data = ms_auth.complete_device_code_login(CLIENT_ID, device_code_data)
+                ms_auth.save_session(mc_dir, auth_data)
                 root.after(0, lambda: launch_game(auth_data["name"], auth_data["id"], auth_data["access_token"]))
             except Exception as e:
                 root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {str(e)}"))
