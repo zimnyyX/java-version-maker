@@ -103,10 +103,12 @@ def login_online():
                 ms_auth.save_session(mc_dir, auth_data)
                 root.after(0, lambda: launch_game(auth_data["name"], auth_data["id"], auth_data["access_token"]))
             except Exception as e:
-                root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {str(e)}"))
+                err_msg = str(e) if str(e) else f"Unknown login completion error ({type(e).__name__})"
+                root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {err_msg}"))
 
         except Exception as e:
-            root.after(0, lambda: messagebox.showerror("Error", str(e)))
+            err_msg = str(e) if str(e) else f"Unknown error during auth setup ({type(e).__name__})"
+            root.after(0, lambda: messagebox.showerror("Error", err_msg))
 
     threading.Thread(target=do_login, daemon=True).start()
 

@@ -199,7 +199,8 @@ class MainLauncher:
                 ms_auth.save_session(mc_dir, auth_data)
                 self.launch_game(version, mc_dir, auth_data["name"], auth_data["id"], auth_data["access_token"])
             except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {str(e)}"))
+                err_msg = str(e) if str(e) else f"Unknown login completion error ({type(e).__name__})"
+                self.root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {err_msg}"))
 
         threading.Thread(target=do_login, daemon=True).start()
 

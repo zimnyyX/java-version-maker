@@ -11,11 +11,12 @@ def get_device_code(client_id):
         "scope": "XboxLive.signin offline_access"
     }
     try:
-        response = requests.post(url, data=data)
+        response = requests.post(url, data=data, timeout=30)
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        raise Exception(f"Failed to get device code: {str(e)}")
+        msg = str(e) if str(e) else f"Unknown error ({type(e).__name__})"
+        raise Exception(f"Failed to get device code: {msg}")
 
 def complete_device_code_login(client_id, device_code_data):
     url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
@@ -42,10 +43,12 @@ def complete_device_code_login(client_id, device_code_data):
                 time.sleep(interval)
                 continue
             elif error:
-                raise Exception(res_data.get("error_description", error))
+                error_msg = res_data.get("error_description", error)
+                raise Exception(error_msg if error_msg else f"Unknown token error: {error}")
         except Exception as e:
             if "authorization_pending" not in str(e):
-                raise Exception(f"Login error: {str(e)}")
+                msg = str(e) if str(e) else f"Unknown login error ({type(e).__name__})"
+                raise Exception(f"Login error: {msg}")
 
         time.sleep(interval)
 
@@ -77,11 +80,16 @@ def _authenticate_minecraft(client_id, ms_token, refresh_token):
 
         # Profile
         profile = minecraft_launcher_lib.microsoft_account.get_profile(mc_access_token)
+        if not profile:
+            raise Exception("Received empty profile from Minecraft services.")
+
         if "error" in profile:
             if profile["error"] == "NOT_FOUND":
                 raise Exception("This Microsoft account does not own Minecraft.")
             else:
-                raise Exception(f"Failed to get Minecraft profile: {profile.get('errorMessage', profile['error'])}")
+                error_name = profile.get("error", "Unknown")
+                error_msg = profile.get("errorMessage", error_name)
+                raise Exception(f"Failed to get Minecraft profile: {error_msg}")
 
         profile["access_token"] = mc_access_token
         profile["refresh_token"] = refresh_token
