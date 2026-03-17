@@ -43,13 +43,9 @@ def launch_game(username, uuid="0", token="0", user_type="msa"):
     }
 
     try:
-        # Check if java is installed locally
         runtime_dir = os.path.join(mc_dir, "runtime")
         java_path = None
         if os.path.exists(runtime_dir):
-            # This is a bit complex as minecraft-launcher-lib's get_java_executable doesn't
-            # easily support finding it in a specific local runtime folder structure
-            # without more work. For now, we search for it.
             for root_dir, dirs, files in os.walk(runtime_dir):
                 for file in files:
                     if file == "java.exe" or file == "java":
@@ -74,22 +70,18 @@ def login_offline():
 def login_online():
     def do_login():
         mc_dir = get_minecraft_directory()
-        # Try to load existing session
         session = ms_auth.load_session(mc_dir)
         if session:
             try:
-                # Refresh session
                 auth_data = ms_auth.refresh_session(CLIENT_ID, session["refresh_token"])
                 ms_auth.save_session(mc_dir, auth_data)
                 root.after(0, lambda: launch_game(auth_data["name"], auth_data["id"], auth_data["access_token"]))
                 return
             except:
-                pass # Fallback to new login
+                pass
 
         try:
             device_code_data = ms_auth.get_device_code(CLIENT_ID)
-
-            # Use root.after for UI updates
             def show_code():
                 root.clipboard_clear()
                 root.clipboard_append(device_code_data['user_code'])
@@ -97,17 +89,16 @@ def login_online():
                 messagebox.showinfo("Microsoft Login", msg)
 
             root.after(0, show_code)
-
             try:
                 auth_data = ms_auth.complete_device_code_login(CLIENT_ID, device_code_data)
                 ms_auth.save_session(mc_dir, auth_data)
                 root.after(0, lambda: launch_game(auth_data["name"], auth_data["id"], auth_data["access_token"]))
             except Exception as e:
-                err_msg = str(e) if str(e) else f"Unknown login completion error ({type(e).__name__})"
+                err_msg = str(e) if str(e) else f"Login failed ({type(e).__name__})"
                 root.after(0, lambda: messagebox.showerror("Login Error", f"Failed to login: {err_msg}"))
 
         except Exception as e:
-            err_msg = str(e) if str(e) else f"Unknown error during auth setup ({type(e).__name__})"
+            err_msg = str(e) if str(e) else f"Auth setup failed ({type(e).__name__})"
             root.after(0, lambda: messagebox.showerror("Error", err_msg))
 
     threading.Thread(target=do_login, daemon=True).start()
@@ -116,24 +107,32 @@ def main():
     global root
     root = tk.Tk()
     root.title("Minecraft Sub-Launcher")
-    root.geometry("400x250")
+    root.geometry("450x300")
+    root.configure(bg="#2c3e50")
 
     version = get_version_id()
 
     style = ttk.Style()
-    style.configure("TButton", padding=6, font=("Arial", 10))
+    style.theme_use("clam")
+    style.configure("Main.TFrame", background="#2c3e50")
+    style.configure("Title.TLabel", background="#2c3e50", foreground="#ecf0f1", font=("Segoe UI", 18, "bold"))
+    style.configure("Version.TLabel", background="#2c3e50", foreground="#bdc3c7", font=("Segoe UI", 11))
+    style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=8)
 
-    tk.Label(root, text="Minecraft Sub-Launcher", font=("Arial", 16, "bold")).pack(pady=10)
-    tk.Label(root, text=f"Fixed Version: {version if version else 'NOT FOUND'}", font=("Arial", 11)).pack(pady=5)
+    main_frame = ttk.Frame(root, style="Main.TFrame", padding=20)
+    main_frame.pack(fill="both", expand=True)
+
+    ttk.Label(main_frame, text="MINECRAFT SUB-LAUNCHER", style="Title.TLabel").pack(pady=(0, 10))
+    ttk.Label(main_frame, text=f"Bound Version: {version if version else 'NOT FOUND'}", style="Version.TLabel").pack(pady=5)
 
     if not version:
-        tk.Label(root, text="Error: No version files found in this folder!", fg="red").pack(pady=5)
+        tk.Label(main_frame, text="Error: No version files found!", fg="#e74c3c", bg="#2c3e50", font=("Segoe UI", 10, "bold")).pack(pady=10)
 
-    btn_frame = tk.Frame(root)
-    btn_frame.pack(pady=20)
+    btn_frame = ttk.Frame(main_frame, style="Main.TFrame")
+    btn_frame.pack(pady=30)
 
-    ttk.Button(btn_frame, text="Launch Offline", command=login_offline, width=20).grid(row=0, column=0, padx=10)
-    ttk.Button(btn_frame, text="Launch Online (MS)", command=login_online, width=20).grid(row=0, column=1, padx=10)
+    ttk.Button(btn_frame, text="LAUNCH OFFLINE", style="Action.TButton", command=login_offline, width=20).grid(row=0, column=0, padx=10)
+    ttk.Button(btn_frame, text="LAUNCH ONLINE", style="Action.TButton", command=login_online, width=20).grid(row=0, column=1, padx=10)
 
     root.mainloop()
 
