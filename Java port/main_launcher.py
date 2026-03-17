@@ -135,13 +135,14 @@ class MainLauncher:
     def prompt_offline_launch(self, version, target_dir):
         username = simpledialog.askstring("Offline Mode", "Enter Username:", parent=self.root)
         if username:
-            threading.Thread(target=self.launch_game, args=(version, target_dir, username), daemon=True).start()
+            threading.Thread(target=self.launch_game, args=(version, target_dir, username, "0", "0", "offline"), daemon=True).start()
 
-    def launch_game(self, version, mc_dir, username, uuid=None, token=None):
+    def launch_game(self, version, mc_dir, username, uuid="0", token="0", user_type="msa"):
         options = {
             "username": username,
-            "uuid": uuid if uuid else "",
-            "token": token if token else ""
+            "uuid": uuid,
+            "token": token,
+            "user_type": user_type
         }
         try:
             # Try to find local JRE

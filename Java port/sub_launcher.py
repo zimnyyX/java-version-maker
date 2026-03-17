@@ -4,7 +4,6 @@ import minecraft_launcher_lib
 import subprocess
 import sys
 import os
-import json
 import threading
 
 # Use a default Client ID
@@ -27,7 +26,7 @@ def get_version_id():
 
     return versions[0]
 
-def launch_game(username, uuid=None, token=None):
+def launch_game(username, uuid="0", token="0", user_type="msa"):
     mc_dir = get_minecraft_directory()
     version = get_version_id()
 
@@ -37,8 +36,9 @@ def launch_game(username, uuid=None, token=None):
 
     options = {
         "username": username,
-        "uuid": uuid if uuid else "",
-        "token": token if token else ""
+        "uuid": uuid,
+        "token": token,
+        "user_type": user_type
     }
 
     try:
@@ -68,7 +68,7 @@ def launch_game(username, uuid=None, token=None):
 def login_offline():
     username = simpledialog.askstring("Offline Mode", "Enter Username:")
     if username:
-        launch_game(username)
+        launch_game(username, user_type="offline")
 
 def login_online():
     def do_login():
